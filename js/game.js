@@ -4,8 +4,8 @@ Wator.const = {
 	breedTime : [4, 12],
 	starvTime : 10,
 	color : [
-		'rgb(0, 255, 0)',
-		'rgb(0, 0, 255)'
+		((255) << 24) + (255 << 8),
+		((255) << 24) + (255 << 16 )
 	],
 	tileSize: 4
 }
@@ -20,6 +20,11 @@ Wator.Renderer = function(field) {
 	this.canvas.get(0).height = this.field.h;
 
 	this.context = this.canvas.get(0).getContext("2d");
+
+	//image-rendering: nearest-neighbour for chrome
+	if(this.context.webkitImageSmoothingEnabled)
+ 		this.context.webkitImageSmoothingEnabled = false
+
 	$('body')
 	.append(this.canvas)
 	.append(
@@ -47,6 +52,9 @@ Wator.Renderer.prototype.render = function() {
 		this.field.h);
 
 
+	var colors = Wator.const.color;
+
+
 	var imageData = this.context.createImageData(this.field.w, this.field.h);
 	var data = imageData.data;
 	var buffer = new ArrayBuffer(data.length);
@@ -55,13 +63,9 @@ Wator.Renderer.prototype.render = function() {
 
 	var list = this.field.entityList, entity;
 	var len = list.length;
-	var index = 0;
 	for(var i = 0; i < len; i++) {
 		if(!(entity = list[i])) continue;
-		index = (this.field.w * entity.position[1]) + entity.position[0];
-		data32[index] = (entity.type)? 
-							((255) << 24) + (255 << 16 ):
-							((255) << 24) + (255 << 8);
+		data32[(this.field.w * entity.position[1]) + entity.position[0]] = colors[entity.type];
 	}
 
 
@@ -283,7 +287,6 @@ Wator.Creature.prototype.eat = function() {
 }
 
 Wator.Creature.prototype.update = function() {
-
 	if(this.type && this.starve >= this.starvTime) {
 		this.field.clear(this);
 		return;
