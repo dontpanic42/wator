@@ -103,6 +103,16 @@ Wator.GameField = function(w, h) {
 	this.wrapCacheX = new Array(w+2);
 	for(var x = 0; x < w+2; x++)
 		this.wrapCacheX[x] = (x==0)? this.w - 1 : (x - 1 >= this.w)? 0 : x - 1;
+
+	this.creatureCache = [
+		new Array(w*h),
+		new Array(w*h)
+	];
+
+	for(var i = 0; i < w*h; i++)
+		this.creatureCache[0][i] = new Wator.Creature(this, 0);
+	for(var i = 0; i < w*h; i++)
+		this.creatureCache[1][i] = new Wator.Creature(this, 1);
 }
 
 Wator.GameField.prototype.add = function(entity) {
@@ -216,7 +226,7 @@ Wator.Game.prototype.loop = function() {
 		// console.time("Loop");
 		this.render.loop();
 		// console.timeEnd("Loop");
-		setTimeout(this.loop.bind(this), (50));
+		setTimeout(this.loop.bind(this), (100));
 	}
 }
 
@@ -238,10 +248,10 @@ Wator.Game.prototype.addRandom = function(fish, shark) {
 	}
 
 	for(var f = 0; f < fish; f++)
-		addEntity(new Wator.Creature(this.field, 0), this.field);
+		addEntity(this.field.creatureCache[0].pop(), this.field);
 
 	for(var s = 0; s < shark; s++)
-		addEntity(new Wator.Creature(this.field, 1), this.field);
+		addEntity(this.field.creatureCache[1].pop(), this.field);
 }
 
 Wator.Creature = function(field, type) {
@@ -261,7 +271,9 @@ Wator.Creature.prototype.breed = function(free) {
 		this.age = 0;
 		var free = this.field.getFree(this.position);
 		if(free!=null) {
-			var nc = new Wator.Creature(this.field, this.type);
+			//var nc = new Wator.Creature(this.field, this.type);
+			var nc = this.field.creatureCache[this.type].pop();
+			nc.age = nc.starve = 0;
 			nc.position = free;
 			this.field.add(nc);
 			return true;
@@ -280,6 +292,7 @@ Wator.Creature.prototype.eat = function() {
 	} else {
 		var fc = this.field.entityMap[fish[0]][fish[1]];
 		this.field.clear(fc);
+		this.field.creatureCache[0].push(fc);
 		this.field.set(this, fc.position);
 		this.starve = 0;
 		return true;
@@ -289,6 +302,7 @@ Wator.Creature.prototype.eat = function() {
 Wator.Creature.prototype.update = function() {
 	if(this.type && this.starve >= this.starvTime) {
 		this.field.clear(this);
+		this.field.creatureCache[1].push(this);
 		return;
 	}
 
