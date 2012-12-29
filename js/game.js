@@ -29,9 +29,9 @@ Wator.Renderer = function(field) {
 	);
 }
 
-Wator.Renderer.prototype.loop = function() {
+Wator.Renderer.prototype.loop = function(grid) {
 	console.time("Update");
-	this.update();
+	this.update(grid);
 	console.timeEnd("Update");
 
 	console.time("Render");
@@ -69,10 +69,11 @@ Wator.Renderer.prototype.render = function() {
 	this.context.putImageData(imageData, 0, 0);
 }
 
-Wator.Renderer.prototype.update = function() {
+Wator.Renderer.prototype.update = function(grid) {
 	var len = this.field.entityList.length, ent;
 	for(var i = 0; i < len; i++) {
 		if(!(ent = this.field.entityList[i])) continue;
+
 		ent.update();
 	}
 }
@@ -92,21 +93,23 @@ Wator.GameField = function(w, h) {
 			this.entityMap[x][y] = null;
 	}
 
-	// this.wrapCache = new Array(w+2);
-	// for(var x = 0; x < w+2; x++) {
-		this.wrapCacheY = new Array(h+2);
-		for(var y = 0; y < h+2; y++)
-			this.wrapCacheY[y] = (y==0)? this.h - 1 : (y - 1 >= this.h)? 0 : y - 1;
+	this.wrapCacheY = new Array(h+2);
+	for(var y = 0; y < h+2; y++)
+		this.wrapCacheY[y] = (y==0)? this.h - 1 : (y - 1 >= this.h)? 0 : y - 1;
 
-		this.wrapCacheX = new Array(w+2);
-		for(var x = 0; x < w+2; x++)
-			this.wrapCacheX[x] = (x==0)? this.w - 1 : (x - 1 >= this.w)? 0 : x - 1;
-		
-// 	}
+	this.wrapCacheX = new Array(w+2);
+	for(var x = 0; x < w+2; x++)
+		this.wrapCacheX[x] = (x==0)? this.w - 1 : (x - 1 >= this.w)? 0 : x - 1;
+
+	// this.grid = new Wator.Grid(w, h);
 }
 
 Wator.GameField.prototype.add = function(entity) {
 	this.entityMap[entity.position[0]][entity.position[1]] = entity;
+
+	// //GRID
+	// if(!entity.type) 
+	// 	this.grid.data[(entity.position[0] & ~0xF)][(entity.position[1] & ~0xF)]++;
 
 	if(this.freeList.length > 0) {
 		var index = this.freeList.pop();
@@ -120,6 +123,7 @@ Wator.GameField.prototype.add = function(entity) {
 }
 
 Wator.GameField.prototype.getFree = function(position) {	
+
 	var free = [], counter = 0,
 		py = position[1], px = position[0],
 		yt = this.wrapCacheY[py],
@@ -180,6 +184,12 @@ Wator.GameField.prototype.getType = function(position) {
 }
 
 Wator.GameField.prototype.set = function(entity, position) {
+	// //GRID
+	// if(!entity.type) {
+	// 	this.grid.data[(entity.position[0] & ~0xF)][(entity.position[1] & ~0xF)]--;
+	// 	this.grid.data[(position[0] & ~0xF)][(position[1] & ~0xF)]++;
+	// }
+
 	this.entityMap[entity.position[0]][entity.position[1]] = null;
 	entity.position = position;
 	this.entityMap[position[0]][position[1]] = entity;
@@ -189,6 +199,9 @@ Wator.GameField.prototype.clear = function(entity) {
 	this.entityMap[entity.position[0]][entity.position[1]] = null;
 	this.entityList[entity.index] = null;
 	this.freeList.push(entity.index);
+
+	// //GRID
+	// if(!entity.type) this.grid.data[(entity.position[0] & ~0xF)][(entity.position[1] & ~0xF)]--;
 }
 
 Wator.Game = function(w, h, initFish, initShark) {
@@ -213,7 +226,7 @@ Wator.Game.prototype.stop = function() {
 Wator.Game.prototype.loop = function() {
 	if(this.running) {
 		// console.time("Loop");
-		this.render.loop();
+		this.render.loop(this.field.grid);
 		// console.timeEnd("Loop");
 		setTimeout(this.loop.bind(this), (50));
 	}
@@ -286,6 +299,11 @@ Wator.Creature.prototype.eat = function() {
 }
 
 Wator.Creature.prototype.update = function() {
+	// if(!this.type && this.field.grid.checkIntraCell(this.position)) {
+	// 	this.age++;
+	// 	return;
+	// }
+
 	if(this.type == 1 && this.starve >= this.starvTime) {
 		this.field.clear(this);
 		return;
@@ -321,10 +339,10 @@ Wator.Grid = function(w, h) {
 	this.w = w / 16;
 	this.h = h / 16;
 
-	this.data = new Array( (w / this.size) );
+	this.data = new Array(w);
 	for(var x = 0; x < this.data.length; x++) {
-		this.data[x] = new Array(h/this.size);
-		for(var y = 0; y < h/this.size; y++) {
+		this.data[x] = new Array(h);
+		for(var y = 0; y < h; y++) {
 			this.data[x][y] = 0;
 		}
 	}
@@ -332,28 +350,21 @@ Wator.Grid = function(w, h) {
 }
 
 Wator.Grid.prototype.add = function(position) {
-	this.data[(position[0] & ~0xF) >> 4][(position[1] & ~0xF) >> 4]++;
+	this.data[(position[0] & ~0xF)][(position[1] & ~0xF)]++;
 }
 
 Wator.Grid.prototype.remove = function(position) {
-	this.data[(position[0] & ~0xF) >> 4][(position[1] & ~0xF) >> 4]--;
+	this.data[(position[0] & ~0xF)][(position[1] & ~0xF)]--;
 }
 
 Wator.Grid.prototype.move = function(posOld, posNew) {
-	var xo = posOld[0] & ~0xF) >> 4,
-		yo = posOld[1] & ~0xF) >> 4,
-		xn = posNew[0] & ~0xF) >> 4,
-		yn = posNew[1] & ~0xF) >> 4;
-
-	if(xo == xn && yo == yn) return;
-
-	this.data[xo][yo]--;
-	this.data[xn][yn]++;
+	this.data[(posOld[0] & ~0xF)][(posOld[1] & ~0xF)]--;
+	this.data[(posNew[0] & ~0xF)][(posNew[1] & ~0xF)]++;
 }
 
 Wator.Grid.prototype.checkIntraCell = function(position) {
-	var cx = (position[0] & ~0xF) >> 4,
-		cy = (position[1] & ~0xF) >> 4;
+	var cx = (position[0] & ~0xF),
+		cy = (position[1] & ~0xF);
 
 	//if this cell isn't full there is no need to update...
 	if(this.data[cx][cy] != 0xF) return false;
@@ -362,11 +373,12 @@ Wator.Grid.prototype.checkIntraCell = function(position) {
 		y = position[1];
 
 	//check if x,y is on cell boundary (then we can't tell shit).
-	if( (!(x & 0xF) || (x & 0xF) == 0xF) &&
-		(!(y & 0xF) || (y & 0xF) == 0xF) )
+	if( ((x+1 & 0xF) == (x+1) || (x & 0xF) == x) &&
+		((y+1 & 0xF) == (y+1) || (y & 0xF) == y) )
 			return false;
 
-
+	//console.log("Ignoring while update...");
+	return true;
 }
 
 // Wator.Grid.prototype.checkExtraCell = function(position) {
