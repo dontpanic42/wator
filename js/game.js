@@ -91,6 +91,18 @@ Wator.GameField = function(w, h) {
 		for(var y = 0; y < w; y++) 
 			this.entityMap[x][y] = null;
 	}
+
+	// this.wrapCache = new Array(w+2);
+	// for(var x = 0; x < w+2; x++) {
+		this.wrapCacheY = new Array(h+2);
+		for(var y = 0; y < h+2; y++)
+			this.wrapCacheY[y] = (y==0)? this.h - 1 : (y - 1 >= this.h)? 0 : y - 1;
+
+		this.wrapCacheX = new Array(w+2);
+		for(var x = 0; x < w+2; x++)
+			this.wrapCacheX[x] = (x==0)? this.w - 1 : (x - 1 >= this.w)? 0 : x - 1;
+		
+// 	}
 }
 
 Wator.GameField.prototype.add = function(entity) {
@@ -110,13 +122,10 @@ Wator.GameField.prototype.add = function(entity) {
 Wator.GameField.prototype.getFree = function(position) {	
 	var free = [], counter = 0,
 		py = position[1], px = position[0],
-		yt = py - 1, yb = py + 1, xl = px-1, xr = px+1;
-
-	if(yt < 0) 				yt = this.h - 1;
-	else if(yb >= this.h) 	yb = 0;				//These are exclusive when w>3
-
-	if(xl < 0) 				xl = this.w - 1;
-	else if(xr >= this.w) 	xr = 0;				//These are exclusive when h>3
+		yt = this.wrapCacheY[py],
+		yb = this.wrapCacheY[py+2],
+		xl = this.wrapCacheX[px],
+		xr = this.wrapCacheX[px+2];
 
 	if(!this.entityMap[xl][yt])
 		free[counter++] = [xl, yt];
@@ -143,13 +152,10 @@ Wator.GameField.prototype.getFree = function(position) {
 Wator.GameField.prototype.getType = function(position) {
 	var free = [], counter = 0,
 		py = position[1], px = position[0],
-		yt = py - 1, yb = py + 1, xl = px-1, xr = px+1;
-
-	if(yt < 0)				yt = this.h - 1;
-	else if(yb >= this.h)	yb = 0;
-
-	if(xl < 0)				xl = this.w - 1;
-	else if(xr >= this.w) 	xr = 0;
+		yt = this.wrapCacheY[py],
+		yb = this.wrapCacheY[py+2],
+		xl = this.wrapCacheX[px],
+		xr = this.wrapCacheX[px+2];
 
 	if(this.entityMap[xl][py] && !this.entityMap[xl][py].type)
 		free[counter++] = [xl, py];
@@ -302,4 +308,93 @@ Wator.Creature.prototype.update = function() {
 
 	this.age++;
 }
+
+Wator.Grid = function(w, h) {
+	this.w = w;
+	this.h = h;
+
+	this.size = 16;
+
+	if( (w % this.size) || (h % this.size) )
+		alert('Error: Gamefield not multiple of ' + this.size + '.');
+
+	this.w = w / 16;
+	this.h = h / 16;
+
+	this.data = new Array( (w / this.size) );
+	for(var x = 0; x < this.data.length; x++) {
+		this.data[x] = new Array(h/this.size);
+		for(var y = 0; y < h/this.size; y++) {
+			this.data[x][y] = 0;
+		}
+	}
+
+}
+
+Wator.Grid.prototype.add = function(position) {
+	this.data[(position[0] & ~0xF) >> 4][(position[1] & ~0xF) >> 4]++;
+}
+
+Wator.Grid.prototype.remove = function(position) {
+	this.data[(position[0] & ~0xF) >> 4][(position[1] & ~0xF) >> 4]--;
+}
+
+Wator.Grid.prototype.move = function(posOld, posNew) {
+	var xo = posOld[0] & ~0xF) >> 4,
+		yo = posOld[1] & ~0xF) >> 4,
+		xn = posNew[0] & ~0xF) >> 4,
+		yn = posNew[1] & ~0xF) >> 4;
+
+	if(xo == xn && yo == yn) return;
+
+	this.data[xo][yo]--;
+	this.data[xn][yn]++;
+}
+
+Wator.Grid.prototype.checkIntraCell = function(position) {
+	var cx = (position[0] & ~0xF) >> 4,
+		cy = (position[1] & ~0xF) >> 4;
+
+	//if this cell isn't full there is no need to update...
+	if(this.data[cx][cy] != 0xF) return false;
+
+	var x = position[0],
+		y = position[1];
+
+	//check if x,y is on cell boundary (then we can't tell shit).
+	if( (!(x & 0xF) || (x & 0xF) == 0xF) &&
+		(!(y & 0xF) || (y & 0xF) == 0xF) )
+			return false;
+
+
+}
+
+// Wator.Grid.prototype.checkExtraCell = function(position) {
+// 	//All gridcells don't need to be updated if the adjectant cells are full
+// 	var x = (position[0] & ~0xF) >> 4,
+// 		y = (position[1] & ~0xF) >> 4;
+
+// 	if(this.data[x][y] != 0xF) return true;
+
+// 	var xl = x - 1, 
+// 		xr = x + 1,
+// 		yt = y - 1,
+// 		yb = y + 1;
+
+// 	if(yt < 0)				yt = this.h - 1;
+// 	else if(yb >= this.h)	yb = 0;
+
+// 	if(xl < 0)				xl = this.w - 1;
+// 	else if(xr >= this.w) 	xr = 0;
+
+// 	if( this.data[xl][yt] == 0xF &&
+// 		this.data[xr][yt] == 0xF &&
+// 		this.data[x] [yt] == 0xF &&
+// 		this.data[xl][yb] == 0xF &&
+// 		this.data[xr][yb] == 0xF &&
+// 		this.data[x] [yb] == 0xF &&
+// 		this.data[xl][y]  == 0xF &&
+// 		this.data[xr][y]  == 0xF ) return false;
+// 	return true;
+// }
 
