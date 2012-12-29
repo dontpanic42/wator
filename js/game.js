@@ -131,7 +131,7 @@ Wator.GameField.prototype.add = function(entity) {
 
 Wator.GameField.prototype.getFree = function(position) {	
 
-	var free = [], counter = 0,
+	var free = new Array(8), counter = 0,
 		py = position[1], px = position[0],
 		yt = this.wrapCacheY[py],
 		yb = this.wrapCacheY[py+2],
@@ -158,6 +158,34 @@ Wator.GameField.prototype.getFree = function(position) {
 		free[counter++] = [xr, py];
 
 	return (counter)? free[(Math.random() * counter) | 0] : null;
+
+	// var freeX = new Array(8), freeY = new Array(8), counter = 0,
+	// 	py = position[1], px = position[0],
+	// 	yt = this.wrapCacheY[py],
+	// 	yb = this.wrapCacheY[py+2],
+	// 	xl = this.wrapCacheX[px],
+	// 	xr = this.wrapCacheX[px+2];
+
+	// if(!this.entityMap[xl][yt])
+	// 	free[counter++] = [xl, yt];
+	// if(!this.entityMap[xl][py])
+	// 	free[counter++] = [xl, py];
+	// if(!this.entityMap[xl][yb])
+	// 	free[counter++] = [xl, yb];
+
+	// if(!this.entityMap[px][yt])
+	// 	free[counter++] = [px, yt];
+	// if(!this.entityMap[px][yb])
+	// 	free[counter++] = [px, yb];
+
+	// if(!this.entityMap[xr][yt])
+	// 	free[counter++] = [xr, yt];
+	// if(!this.entityMap[xr][yb])
+	// 	free[counter++] = [xr, yb];
+	// if(!this.entityMap[xr][py])
+	// 	free[counter++] = [xr, py];
+
+	// return (counter)? free[(Math.random() * counter) | 0] : null;
 }
 
 Wator.GameField.prototype.getType = function(position) {
